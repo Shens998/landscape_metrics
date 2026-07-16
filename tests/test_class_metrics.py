@@ -1,6 +1,8 @@
 import math
+import importlib
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from landscape_metrics.metrics.class_level import class_metrics
@@ -32,3 +34,19 @@ def test_class_metrics_use_valid_landscape_area_as_denominator() -> None:
     assert math.isnan(row["area_cv"])
     assert row["shape_index_mean"] == row["shape_index_mean"]
     assert row["aggregation_index"] == 100.0
+
+
+def test_class_metrics_accepts_a_backend_neutral_summary() -> None:
+    topology = build_topology(
+        np.array([[1, 1], [2, 2]], dtype=np.int16),
+        nodata=None,
+        grid=GridSpec(width=2, height=2, pixel_width=30, pixel_height=30, crs="EPSG:6933"),
+        connectivity=4,
+    )
+    patches = patch_metrics(topology)
+    summary = importlib.import_module("landscape_metrics.metrics.summary")
+
+    pd.testing.assert_frame_equal(
+        class_metrics(patches, topology),
+        class_metrics(patches, summary.summary_from_topology(topology)),
+    )
