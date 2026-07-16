@@ -159,11 +159,14 @@ def test_chunked_preflight_fails_before_creating_work_directory(tmp_path, monkey
         preflight_temporary_storage(tmp_path, grid)
     assert list(tmp_path.iterdir()) == []
 
-@pytest.mark.parametrize("connectivity, patch_count", [(4, 4), (8, 2)])
-def test_chunked_joins_diagonal_components_across_four_tile_corner(tmp_path, connectivity, patch_count) -> None:
-    path = _write_grid(tmp_path / "diagonal.tif", np.array([[1, 0], [0, 1]], dtype=np.int16))
-    result = Landscape.from_geotiff(path, connectivity=connectivity, tile_shape=(1, 1), tempdir=tmp_path)
-    assert len(result.patch_metrics().values) == patch_count
+def test_disk_union_find_keeps_the_smallest_root(tmp_path) -> None:
+    parent = np.memmap(tmp_path / "parent.memmap", dtype=np.int64, mode="w+", shape=(10,))
+    parent[:] = np.arange(10)
+    union_find = DiskUnionFind(parent)
+    union_find.union(9, 4)
+    union_find.union(4, 3)
+    assert union_find.find(9) == 3
+    assert union_find.find(4) == 3
 ~~~
 
 - [ ] **Step 2: Run the focused red test**
@@ -234,7 +237,7 @@ Run:
 .venv/bin/python -m mypy src
 ~~~
 
-Expected: quota and diagonal-connectivity tests PASS. Full metric-equivalence tests can remain red until Task 3.
+Expected: quota and disk-union tests PASS. Cross-tile diagonal connectivity is verified by Task 3's public patch/class/landscape equivalence tests, which remain red until aggregation exists.
 
 ~~~bash
 git add src/landscape_metrics/chunked.py tests/test_chunked.py
