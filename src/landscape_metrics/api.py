@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from collections.abc import Sequence
 from typing import Literal
 
 import numpy as np
@@ -11,6 +12,7 @@ from .metrics.class_level import class_metrics as compute_class_metrics
 from .metrics.landscape import landscape_metrics as compute_landscape_metrics
 from .metrics.patch import patch_metrics as compute_patch_metrics
 from .models import ChunkedResults, GridSpec, MetricResult, RunConfig
+from .selection import select_metric_columns
 from .topology import Topology, build_topology
 
 
@@ -121,25 +123,37 @@ class Landscape:
             "metric_version": "v0.1",
         }
 
-    def patch_metrics(self) -> MetricResult:
+    def patch_metrics(self, *, metrics: Sequence[str] | None = None) -> MetricResult:
         """Return one row per patch and reproducibility metadata."""
         if self._config.tile_shape is not None:
-            return MetricResult(self._chunked().patches.copy(), self._metadata())
-        return MetricResult(compute_patch_metrics(self._topology()), self._metadata())
+            values = self._chunked().patches
+        else:
+            values = compute_patch_metrics(self._topology())
+        return MetricResult(
+            select_metric_columns(values, level="patch", requested=metrics), self._metadata()
+        )
 
-    def class_metrics(self) -> MetricResult:
+    def class_metrics(self, *, metrics: Sequence[str] | None = None) -> MetricResult:
         """Return one row per explicit class and reproducibility metadata."""
         if self._config.tile_shape is not None:
-            return MetricResult(self._chunked().classes.copy(), self._metadata())
-        topology = self._topology()
-        patches = compute_patch_metrics(topology)
-        return MetricResult(compute_class_metrics(patches, topology), self._metadata())
+            values = self._chunked().classes
+        else:
+            topology = self._topology()
+            patches = compute_patch_metrics(topology)
+            values = compute_class_metrics(patches, topology)
+        return MetricResult(
+            select_metric_columns(values, level="class", requested=metrics), self._metadata()
+        )
 
-    def metrics(self) -> MetricResult:
+    def metrics(self, *, metrics: Sequence[str] | None = None) -> MetricResult:
         """Return the one-row frozen landscape metric set and reproducibility metadata."""
         if self._config.tile_shape is not None:
-            return MetricResult(self._chunked().landscape.copy(), self._metadata())
-        topology = self._topology()
-        patches = compute_patch_metrics(topology)
-        classes = compute_class_metrics(patches, topology)
-        return MetricResult(compute_landscape_metrics(classes, patches, topology), self._metadata())
+            values = self._chunked().landscape
+        else:
+            topology = self._topology()
+            patches = compute_patch_metrics(topology)
+            classes = compute_class_metrics(patches, topology)
+            values = compute_landscape_metrics(classes, patches, topology)
+        return MetricResult(
+            select_metric_columns(values, level="landscape", requested=metrics), self._metadata()
+        )
