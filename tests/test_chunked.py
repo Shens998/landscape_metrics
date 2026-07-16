@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 import pytest
 import rasterio
+from hypothesis import HealthCheck, assume, given, settings
+from hypothesis import strategies as st
 from rasterio.transform import from_origin
 
 from landscape_metrics import Landscape
@@ -13,7 +15,14 @@ from landscape_metrics.errors import TemporaryStorageError
 from landscape_metrics.models import GridSpec, RunConfig
 
 
-def _write_grid(path, values: np.ndarray) -> None:
+def _write_grid(
+    path,
+    values: np.ndarray,
+    *,
+    pixel_width: float = 30,
+    pixel_height: float = 30,
+    nodata: int = -1,
+) -> None:
     with rasterio.open(
         path,
         "w",
@@ -23,10 +32,16 @@ def _write_grid(path, values: np.ndarray) -> None:
         count=1,
         dtype=values.dtype,
         crs="EPSG:6933",
-        transform=from_origin(0, values.shape[0] * 30, 30, 30),
-        nodata=-1,
+        transform=from_origin(0, values.shape[0] * pixel_height, pixel_width, pixel_height),
+        nodata=nodata,
     ) as dataset:
         dataset.write(values, 1)
+
+
+def _assert_public_tables_equal(memory: Landscape, tiled: Landscape) -> None:
+    pd.testing.assert_frame_equal(memory.patch_metrics().values, tiled.patch_metrics().values)
+    pd.testing.assert_frame_equal(memory.class_metrics().values, tiled.class_metrics().values)
+    pd.testing.assert_frame_equal(memory.metrics().values, tiled.metrics().values)
 
 
 @pytest.mark.parametrize("connectivity", [4, 8])
@@ -50,9 +65,7 @@ def test_chunked_results_match_memory_for_cross_boundary_and_diagonal_patches(
         tempdir=tmp_path,
     )
 
-    pd.testing.assert_frame_equal(memory.patch_metrics().values, chunked.patch_metrics().values)
-    pd.testing.assert_frame_equal(memory.class_metrics().values, chunked.class_metrics().values)
-    pd.testing.assert_frame_equal(memory.metrics().values, chunked.metrics().values)
+    _assert_public_tables_equal(memory, chunked)
     assert chunked.metrics().metadata["execution_path"] == "chunked"
 
 
@@ -102,3 +115,84 @@ def test_root_labels_apply_the_requested_cross_tile_connectivity(
 
     assert bool(roots[0, 0] == roots[1, 1]) is joins_diagonals
     assert bool(roots[0, 1] == roots[1, 0]) is joins_diagonals
+
+
+@pytest.mark.parametrize("connectivity", [4, 8])
+@pytest.mark.parametrize("tile_shape", [(1, 2), (2, 1), (2, 2)])
+def test_chunked_matches_memory_for_nodata_background_and_non_square_pixels(
+    tmp_path,
+    connectivity,
+    tile_shape,
+) -> None:
+    path = tmp_path / "rules.tif"
+    _write_grid(
+        path,
+        np.array([[0, -1, 1], [0, 1, 1], [2, 2, -1]], dtype=np.int16),
+        pixel_width=20,
+        pixel_height=30,
+    )
+
+    memory = Landscape.from_geotiff(path, connectivity=connectivity)
+    tiled = Landscape.from_geotiff(
+        path,
+        connectivity=connectivity,
+        tile_shape=tile_shape,
+        tempdir=tmp_path,
+    )
+
+    _assert_public_tables_equal(memory, tiled)
+    assert tiled.metrics().metadata["execution_path"] == "chunked"
+    assert tiled.metrics().metadata["tile_shape"] == list(tile_shape)
+
+
+def test_chunked_success_cleans_only_its_private_work_directory(tmp_path) -> None:
+    path = tmp_path / "input.tif"
+    _write_grid(path, np.array([[0, 1], [1, 0]], dtype=np.int16))
+
+    tiled = Landscape.from_geotiff(path, tile_shape=(1, 1), tempdir=tmp_path)
+
+    tiled.metrics()
+
+    assert path.exists()
+    assert not list(tmp_path.glob("landscape-metrics-*"))
+
+
+@settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@given(
+    data=st.data(),
+    height=st.integers(min_value=1, max_value=5),
+    width=st.integers(min_value=1, max_value=5),
+    connectivity=st.sampled_from([4, 8]),
+)
+def test_chunked_matches_memory_for_random_small_categorical_grids(
+    tmp_path,
+    data,
+    height,
+    width,
+    connectivity,
+) -> None:
+    flat = data.draw(
+        st.lists(
+            st.sampled_from([-1, 0, 1, 2]),
+            min_size=height * width,
+            max_size=height * width,
+        )
+    )
+    values = np.array(flat, dtype=np.int16).reshape(height, width)
+    assume(np.any(values != -1))
+    tile_shape = (
+        data.draw(st.integers(min_value=1, max_value=height)),
+        data.draw(st.integers(min_value=1, max_value=width)),
+    )
+    path = tmp_path / "random.tif"
+    _write_grid(path, values, pixel_width=20, pixel_height=30)
+
+    memory = Landscape.from_geotiff(path, connectivity=connectivity)
+    tiled = Landscape.from_geotiff(
+        path,
+        connectivity=connectivity,
+        tile_shape=tile_shape,
+        tempdir=tmp_path,
+    )
+
+    _assert_public_tables_equal(memory, tiled)
