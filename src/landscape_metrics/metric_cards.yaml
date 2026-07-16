@@ -1,0 +1,169 @@
+metrics:
+  aggregation_index:
+    id: aggregation_index
+    level: [class, landscape]
+    formula: "100 * g_ii / max_g_ii; landscape level uses sums over classes"
+    unit: percent
+    rules: "g_ii is a count of same-class shared sides; NoData is excluded; diagonal contact is not adjacency"
+    source_kind: original
+    sources: ["https://doi.org/10.1023/A:1008102521322"]
+  area:
+    id: area
+    level: [patch]
+    formula: "cell_count * pixel_width * pixel_height"
+    unit: square_metre
+    rules: "valid cells only; NoData is excluded"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  area_cv:
+    id: area_cv
+    level: [class]
+    formula: "100 * sample_sd(patch_area) / mean(patch_area)"
+    unit: percent
+    rules: "returns NaN when fewer than two patches exist"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  area_mean:
+    id: area_mean
+    level: [class]
+    formula: "mean(patch_area)"
+    unit: square_metre
+    rules: "valid patches of one explicit class only"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  area_sd:
+    id: area_sd
+    level: [class]
+    formula: "sample standard deviation of patch_area"
+    unit: square_metre
+    rules: "returns NaN when fewer than two patches exist"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  edge_density:
+    id: edge_density
+    level: [class, landscape]
+    formula: "total_edge_metre / valid_landscape_area_hectare"
+    unit: metre_per_hectare
+    rules: "shared sides only; landscape exterior is included by default; NoData sides are excluded"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  fractal_dimension:
+    id: fractal_dimension
+    level: [patch]
+    formula: "2 * ln(0.25 * perimeter) / ln(area)"
+    unit: dimensionless
+    rules: "returns NaN for one-cell patches; area and perimeter use metre-based units"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  largest_patch_index:
+    id: largest_patch_index
+    level: [class, landscape]
+    formula: "100 * max(patch_area) / valid_landscape_area"
+    unit: percent
+    rules: "NoData is excluded from the denominator"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  number_of_patches:
+    id: number_of_patches
+    level: [class, landscape]
+    formula: "count of labeled patches"
+    unit: count
+    rules: "patch connectivity is configured as 4 or 8; NoData is excluded"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  patch_density:
+    id: patch_density
+    level: [class, landscape]
+    formula: "number_of_patches / valid_landscape_area_hectare * 100"
+    unit: patches_per_100_hectare
+    rules: "valid landscape area excludes NoData"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  perimeter:
+    id: perimeter
+    level: [patch]
+    formula: "sum of valid class interfaces and selected landscape exterior sides"
+    unit: metre
+    rules: "sides touching NoData are excluded; diagonal contact is not an edge"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  perimeter_area_ratio:
+    id: perimeter_area_ratio
+    level: [patch]
+    formula: "perimeter / area"
+    unit: inverse_metre
+    rules: "area must be positive and comes from valid cells only"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  proportion_of_landscape:
+    id: proportion_of_landscape
+    level: [class]
+    formula: "100 * class_area / valid_landscape_area"
+    unit: percent
+    rules: "NoData is excluded from both numerator and denominator"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  radius_of_gyration:
+    id: radius_of_gyration
+    level: [patch]
+    formula: "sqrt(mean squared distance from cell centers to their centroid)"
+    unit: metre
+    rules: "all valid cells in a patch contribute equally"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  shape_index:
+    id: shape_index
+    level: [patch]
+    formula: "perimeter / (2 * sqrt(pi * area))"
+    unit: dimensionless
+    rules: "uses physical perimeter and area from the input grid"
+    source_kind: original
+    sources: ["https://doi.org/10.2307/3781151"]
+  shape_index_mean:
+    id: shape_index_mean
+    level: [class]
+    formula: "mean(patch_shape_index)"
+    unit: dimensionless
+    rules: "unweighted arithmetic mean over valid patches in one class"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  shannon_diversity:
+    id: shannon_diversity
+    level: [landscape]
+    formula: "-sum(q_i * ln(q_i)) for positive class proportions"
+    unit: dimensionless
+    rules: "explicit valid classes only; NoData is excluded"
+    source_kind: original
+    sources: ["https://doi.org/10.1002/j.1538-7305.1948.tb01338.x"]
+  shannon_evenness:
+    id: shannon_evenness
+    level: [landscape]
+    formula: "shannon_diversity / ln(class_count)"
+    unit: dimensionless
+    rules: "returns 0 when exactly one explicit class is present"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  simpson_diversity:
+    id: simpson_diversity
+    level: [landscape]
+    formula: "1 - sum(q_i squared)"
+    unit: dimensionless
+    rules: "explicit valid classes only; NoData is excluded"
+    source_kind: original
+    sources: ["https://doi.org/10.1038/163688a0"]
+  total_area:
+    id: total_area
+    level: [class, landscape]
+    formula: "sum of valid cell areas"
+    unit: square_metre
+    rules: "class level sums one class; landscape level sums all valid classes; NoData is excluded"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  total_edge:
+    id: total_edge
+    level: [class]
+    formula: "sum of class edge lengths"
+    unit: metre
+    rules: "shared class interfaces and selected landscape exterior are included; NoData sides are excluded"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
