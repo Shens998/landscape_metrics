@@ -8,7 +8,7 @@ Open Landscape Metrics is an open-science Python library for calculating a focus
 
 本项目独立实现公开可追溯的指标定义，记录公式、规则和文献来源；不调用 FRAGSTATS，不读取其工程格式，也不宣称与任何专有软件逐项兼容。NoData 被明确排除，背景值是普通的显式类别；4/8 邻域连通与共享边邻接分别定义。
 
-当前 alpha 版本提供斑块、类别和景观三级的常用基础指标。针对超大 GeoTIFF 的精确、单机内存受控分块计算后端正在开发中；在它完成验证前，请使用默认内存路径处理可容纳于内存的数据。
+当前 alpha 版本提供斑块、类别和景观三级的常用基础指标。对于超大 GeoTIFF，可用 `tile_shape` 启动经过验证的精确、单机内存受控分块路径；它不构造完整内存拓扑，也不会读取完整源波段。详细规则见[方法说明](docs/methods.md)。
 
 ## English overview
 
@@ -16,7 +16,7 @@ Open Landscape Metrics is an open-science Python library for calculating a focus
 
 The project is independently implemented from public, citable definitions. It does not call FRAGSTATS, read FRAGSTATS project files, or claim one-to-one compatibility with proprietary software. NoData is excluded from area, edge, and adjacency calculations, while a background value is an ordinary explicit class. Patch connectivity (4 or 8 neighbours) is intentionally separate from side-based edge adjacency.
 
-The current alpha provides common patch-, class-, and landscape-level metrics. An exact, memory-bounded tiled backend for very large GeoTIFFs is under active development. Until it is fully verified, use the default in-memory path for rasters that fit in available memory.
+The current alpha provides common patch-, class-, and landscape-level metrics. For very large GeoTIFFs, `tile_shape` enables a verified exact, memory-bounded tiled path; it constructs neither a full in-memory topology nor a full source-band read. See the [methods note](docs/methods.md) for the calculation rules.
 
 ## Quick start / 快速开始
 
@@ -32,6 +32,25 @@ landscape_metrics = landscape.metrics().values
 print(classes)
 ```
 
+Request only the columns needed for a table while keeping identity columns and metadata:
+
+```python
+classes = landscape.class_metrics(metrics=["edge_density", "total_area"])
+edge_density = landscape.metrics(metrics=["edge_density"])
+```
+
+For a large GeoTIFF, select an explicit tile size and a location with sufficient temporary disk space:
+
+```python
+large = Landscape.from_geotiff(
+    "large_lulc.tif",
+    connectivity=8,
+    tile_shape=(2048, 2048),
+    tempdir="/path/to/temporary-storage",
+)
+classes = large.class_metrics(metrics=["total_area", "number_of_patches"])
+```
+
 Input rasters must be single-band integer categories with a projected, north-up, unrotated GeoTIFF transform. The library does not silently reproject, resample, or recode data.
 
 ## Scope / 当前范围
@@ -39,7 +58,9 @@ Input rasters must be single-band integer categories with a projected, north-up,
 - Patch connectivity: 4 or 8 neighbours; perimeter and adjacency always use shared sides only.
 - NoData is excluded; explicit background categories are retained.
 - Pixel width and height may differ; areas and side lengths use the input grid geometry.
+- Tiled execution is exact for the current metric set. Before it starts, the library reserves a conservative temporary-storage budget of 48 bytes/像元 (48 bytes per pixel); its working files are automatically cleaned after success or failure.
 - Metric cards, formulas, assumptions, and original/definition references are available in [docs/metrics.md](docs/metrics.md).
+- Algorithmic rules, reproducibility metadata, and the benchmark procedure are in [docs/methods.md](docs/methods.md).
 - The library currently has no CLI, GUI, vector-input, moving-window, Core Area, IIC, or PC support.
 
 ## Project status / 项目状态
