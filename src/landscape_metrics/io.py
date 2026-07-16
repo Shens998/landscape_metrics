@@ -60,8 +60,21 @@ def _grid_from_dataset(dataset: DatasetReader) -> GridSpec:
 
 def inspect_geotiff(path: Path | str) -> GridSpec:
     """Read only the structural metadata needed to validate a GeoTIFF."""
+    grid, _ = inspect_geotiff_details(path)
+    return grid
+
+
+def inspect_geotiff_details(path: Path | str) -> tuple[GridSpec, int | None]:
+    """Validate GeoTIFF metadata without reading the full raster band."""
     with rasterio.open(path) as dataset:
-        return _grid_from_dataset(dataset)
+        grid = _grid_from_dataset(dataset)
+        if not np.issubdtype(np.dtype(dataset.dtypes[0]), np.integer):
+            raise InvalidRasterError("GeoTIFF input must contain integer categorical values")
+        nodata_value = dataset.nodata
+
+    if nodata_value is not None and not float(nodata_value).is_integer():
+        raise InvalidRasterError("GeoTIFF NoData must be an integer for categorical input")
+    return grid, None if nodata_value is None else int(nodata_value)
 
 
 def read_geotiff(path: Path | str) -> tuple[np.ndarray, GridSpec, int | None]:

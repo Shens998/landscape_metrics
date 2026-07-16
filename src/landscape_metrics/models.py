@@ -53,3 +53,28 @@ class MetricResult:
 
     values: pd.DataFrame
     metadata: dict[str, object]
+
+
+@dataclass(frozen=True, slots=True)
+class AggregateSummary:
+    """Backend-neutral inputs required by class and landscape aggregations."""
+
+    grid: GridSpec
+    valid_cell_count: int
+    class_cell_counts: dict[int, int]
+    same_adjacency_by_class: dict[int, int]
+    class_edge_by_class: dict[int, float]
+    landscape_edge: float
+
+    def __post_init__(self) -> None:
+        if self.valid_cell_count < 0:
+            raise ConfigurationError("valid_cell_count must be non-negative")
+
+
+@dataclass(frozen=True, slots=True)
+class ChunkedResults:
+    """Cached metric tables emitted by the out-of-core backend."""
+
+    patches: pd.DataFrame
+    classes: pd.DataFrame
+    landscape: pd.DataFrame

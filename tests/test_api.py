@@ -54,3 +54,30 @@ def test_landscape_from_geotiff_uses_the_same_public_api(tmp_path) -> None:
 
     assert result.values.loc[0, "total_area"] == 3600.0
     assert result.metadata["execution_path"] == "memory"
+
+
+def test_chunked_constructor_retains_path_without_reading_the_full_band(tmp_path, monkeypatch) -> None:
+    path = tmp_path / "classes.tif"
+    values = np.array([[1]], dtype=np.int16)
+    with rasterio.open(
+        path,
+        "w",
+        driver="GTiff",
+        height=1,
+        width=1,
+        count=1,
+        dtype=values.dtype,
+        crs="EPSG:6933",
+        transform=from_origin(0, 30, 30, 30),
+    ) as dataset:
+        dataset.write(values, 1)
+
+    monkeypatch.setattr(
+        "landscape_metrics.io.read_geotiff",
+        lambda _: (_ for _ in ()).throw(AssertionError("full raster read")),
+    )
+
+    landscape = Landscape.from_geotiff(path, tile_shape=(1, 1), tempdir=tmp_path)
+
+    assert landscape._array is None
+    assert landscape._path == path

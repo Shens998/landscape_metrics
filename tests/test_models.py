@@ -2,6 +2,7 @@ import pytest
 import pandas as pd
 
 from landscape_metrics.errors import ConfigurationError, SpatialMetadataError
+from landscape_metrics import models
 from landscape_metrics.models import GridSpec, MetricResult, RunConfig
 
 
@@ -23,3 +24,10 @@ def test_metric_result_keeps_values_and_metadata_contract() -> None:
 
     assert result.values.equals(values)
     assert result.metadata == metadata
+
+
+def test_aggregate_summary_rejects_negative_cell_counts() -> None:
+    grid = GridSpec(width=1, height=1, pixel_width=30, pixel_height=30, crs="EPSG:6933")
+
+    with pytest.raises(ConfigurationError, match="valid_cell_count"):
+        models.AggregateSummary(grid, -1, {}, {}, {}, 0.0)

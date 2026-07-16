@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 import rasterio
+from landscape_metrics import io as landscape_io
 from affine import Affine
 from rasterio.crs import CRS
 from rasterio.transform import from_origin
@@ -72,6 +73,7 @@ def test_geotiff_reader_returns_single_band_array_and_grid(tmp_path) -> None:
     assert grid.pixel_width == 30
     assert grid.pixel_height == 30
     assert inspect_geotiff(path) == grid
+    assert landscape_io.inspect_geotiff_details(path) == (grid, -9999)
 
 
 def test_geotiff_reader_rejects_rotated_transform(tmp_path) -> None:
