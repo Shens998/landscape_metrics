@@ -1,11 +1,13 @@
 """Pure patch-level metric formulas."""
 
 import math
+from collections.abc import Mapping, Sequence
 
 import numpy as np
 import pandas as pd
 
 from ..topology import Topology
+from ..models import GridSpec
 
 
 def patch_shape_index(*, area: float, perimeter: float) -> float:
@@ -61,6 +63,41 @@ def patch_metrics(topology: Topology) -> pd.DataFrame:
                     pixel_width=topology.grid.pixel_width,
                     pixel_height=topology.grid.pixel_height,
                 ),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def patch_metrics_from_summaries(
+    records: Sequence[Mapping[str, float | int]],
+    grid: GridSpec,
+) -> pd.DataFrame:
+    """Calculate patch metrics from streamed per-patch moments and edge summaries."""
+    cell_area = grid.pixel_width * grid.pixel_height
+    rows: list[dict[str, float | int]] = []
+    for record in records:
+        cell_count = int(record["cell_count"])
+        area = cell_count * cell_area
+        perimeter = float(record["perimeter"])
+        mean_row = float(record["sum_row"]) / cell_count
+        mean_col = float(record["sum_col"]) / cell_count
+        row_variance = float(record["sum_row_sq"]) / cell_count - mean_row**2
+        col_variance = float(record["sum_col_sq"]) / cell_count - mean_col**2
+        radius = math.sqrt(
+            max(0.0, row_variance * grid.pixel_height**2 + col_variance * grid.pixel_width**2)
+        )
+        rows.append(
+            {
+                "patch_id": int(record["patch_id"]),
+                "class_value": int(record["class_value"]),
+                "area": area,
+                "perimeter": perimeter,
+                "shape_index": patch_shape_index(area=area, perimeter=perimeter),
+                "perimeter_area_ratio": perimeter / area,
+                "fractal_dimension": patch_fractal_dimension(
+                    area=area, perimeter=perimeter, cell_count=cell_count
+                ),
+                "radius_of_gyration": radius,
             }
         )
     return pd.DataFrame(rows)

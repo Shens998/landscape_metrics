@@ -1,4 +1,5 @@
 import math
+import importlib
 
 import numpy as np
 import pytest
@@ -50,3 +51,25 @@ def test_patch_metrics_returns_one_row_per_nonzero_patch_label() -> None:
     ]
     assert result["area"].tolist() == [1800.0, 1800.0]
     assert result["perimeter"].tolist() == [180.0, 180.0]
+
+
+def test_patch_metrics_from_streamed_moments_matches_a_two_cell_patch() -> None:
+    patch = importlib.import_module("landscape_metrics.metrics.patch")
+    result = patch.patch_metrics_from_summaries(
+        [
+            {
+                "patch_id": 1,
+                "class_value": 1,
+                "cell_count": 2,
+                "perimeter": 180.0,
+                "sum_row": 0.0,
+                "sum_col": 1.0,
+                "sum_row_sq": 0.0,
+                "sum_col_sq": 1.0,
+            }
+        ],
+        GridSpec(width=2, height=1, pixel_width=30, pixel_height=30, crs="EPSG:6933"),
+    )
+
+    assert result.loc[0, "area"] == 1800.0
+    assert result.loc[0, "radius_of_gyration"] == pytest.approx(15.0)
