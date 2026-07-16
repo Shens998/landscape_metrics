@@ -11,7 +11,10 @@ import rasterio
 from rasterio.windows import Window
 
 from .errors import TemporaryStorageError
-from .models import ChunkedResults, GridSpec, RunConfig
+from .metrics.class_level import class_metrics
+from .metrics.landscape import landscape_metrics
+from .metrics.patch import patch_metrics_from_summaries
+from .models import AggregateSummary, ChunkedResults, GridSpec, RunConfig
 from .topology import label_patches
 
 
@@ -262,6 +265,115 @@ def compute_chunked(
     nodata: int | None,
     config: RunConfig,
 ) -> ChunkedResults:
-    """Reserve the stable chunked-backend interface before its implementation."""
-    del path, grid, nodata, config
-    raise NotImplementedError("the chunked backend has not been implemented yet")
+    """Compute exact metric tables with disk-backed labels and patch summaries."""
+    if config.tile_shape is None:
+        raise ValueError("chunked execution requires tile_shape")
+    work_parent = preflight_temporary_storage(config.tempdir, grid)
+    with tempfile.TemporaryDirectory(prefix="landscape-metrics-", dir=work_parent) as name:
+        workdir = Path(name)
+        roots = build_root_labels(path, grid=grid, nodata=nodata, config=config, workdir=workdir)
+        database = sqlite3.connect(workdir / "patches.sqlite")
+        database.execute(
+            "CREATE TABLE patches (root_label INTEGER PRIMARY KEY, class_value INTEGER NOT NULL, "
+            "cell_count INTEGER NOT NULL, perimeter REAL NOT NULL, same_adjacency INTEGER NOT NULL, "
+            "sum_row REAL NOT NULL, sum_col REAL NOT NULL, sum_row_sq REAL NOT NULL, "
+            "sum_col_sq REAL NOT NULL, first_row INTEGER NOT NULL, first_col INTEGER NOT NULL)"
+        )
+        summary = _aggregate_windows(path, roots, grid, nodata, config, database)
+        records = _read_patch_records(database)
+        database.close()
+        patches = patch_metrics_from_summaries(records, grid)
+        classes = class_metrics(patches, summary)
+        return ChunkedResults(patches, classes, landscape_metrics(classes, patches, summary))
+
+
+def _aggregate_windows(
+    path: Path,
+    roots: np.memmap,
+    grid: GridSpec,
+    nodata: int | None,
+    config: RunConfig,
+    database: sqlite3.Connection,
+) -> AggregateSummary:
+    """Aggregate root labels one window at a time into a SQLite patch table."""
+    valid_count = 0
+    class_counts: dict[int, int] = {}
+    same_counts: dict[int, int] = {}
+    landscape_edge = 0.0
+    with rasterio.open(path) as dataset:
+        for window in iter_windows(grid, config.tile_shape or (grid.height, grid.width)):
+            r0, c0 = int(window.row_off), int(window.col_off)
+            r1, c1 = r0 + int(window.height), c0 + int(window.width)
+            er0, ec0 = max(0, r0 - 1), max(0, c0 - 1)
+            er1, ec1 = min(grid.height, r1 + 1), min(grid.width, c1 + 1)
+            expanded = Window(ec0, er0, ec1 - ec0, er1 - er0)
+            values = dataset.read(1, window=expanded)
+            root_values = roots[er0:er1, ec0:ec1]
+            rr0, cc0 = r0 - er0, c0 - ec0
+            central = values[rr0 : rr0 + (r1 - r0), cc0 : cc0 + (c1 - c0)]
+            labels = root_values[rr0 : rr0 + (r1 - r0), cc0 : cc0 + (c1 - c0)]
+            valid = labels > 0
+            if not np.any(valid):
+                continue
+            flat_labels = labels[valid]
+            unique, inverse = np.unique(flat_labels, return_inverse=True)
+            counts = np.bincount(inverse)
+            rows, cols = np.nonzero(valid)
+            global_rows, global_cols = rows + r0, cols + c0
+            sum_row = np.bincount(inverse, weights=global_rows)
+            sum_col = np.bincount(inverse, weights=global_cols)
+            sum_row_sq = np.bincount(inverse, weights=global_rows.astype(float) ** 2)
+            sum_col_sq = np.bincount(inverse, weights=global_cols.astype(float) ** 2)
+            first_row = np.full(unique.size, grid.height, dtype=int)
+            first_col = np.full(unique.size, grid.width, dtype=int)
+            np.minimum.at(first_row, inverse, global_rows)
+            np.minimum.at(first_col, inverse, global_cols)
+            first_index = np.full(unique.size, central.size, dtype=int)
+            np.minimum.at(first_index, inverse, np.flatnonzero(valid))
+            classes = central.ravel()[first_index]
+            perimeter = np.zeros(unique.size, dtype=float)
+            same = np.zeros(unique.size, dtype=int)
+            global_row_grid = np.arange(r0, r1)[:, np.newaxis]
+            global_col_grid = np.arange(c0, c1)[np.newaxis, :]
+            padded_roots = np.pad(root_values, 1)
+            padded_values = np.pad(values, 1)
+            cr0, cc0p = rr0 + 1, cc0 + 1
+            for dr, dc, length, count_same in ((-1, 0, grid.pixel_width, False), (1, 0, grid.pixel_width, True), (0, -1, grid.pixel_height, False), (0, 1, grid.pixel_height, True)):
+                neighbor_roots = padded_roots[cr0 + dr : cr0 + dr + labels.shape[0], cc0p + dc : cc0p + dc + labels.shape[1]]
+                neighbor_values = padded_values[
+                    cr0 + dr : cr0 + dr + labels.shape[0],
+                    cc0p + dc : cc0p + dc + labels.shape[1],
+                ]
+                boundary = valid & (neighbor_roots > 0) & (neighbor_values != central)
+                outside = valid & (
+                    (global_row_grid + dr < 0)
+                    | (global_row_grid + dr >= grid.height)
+                    | (global_col_grid + dc < 0)
+                    | (global_col_grid + dc >= grid.width)
+                )
+                perimeter += np.bincount(inverse, weights=(boundary[valid] | outside[valid]) * length, minlength=unique.size)
+                if count_same:
+                    landscape_edge += float(boundary.sum() + outside.sum()) * length
+                    equal = valid & (neighbor_roots > 0) & (neighbor_values == central)
+                    same += np.bincount(inverse, weights=equal[valid], minlength=unique.size).astype(int)
+            landscape_edge += float((valid & (global_row_grid == 0)).sum()) * grid.pixel_width
+            landscape_edge += float((valid & (global_col_grid == 0)).sum()) * grid.pixel_height
+            database.executemany(
+                "INSERT INTO patches VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(root_label) DO UPDATE SET cell_count=cell_count+excluded.cell_count, perimeter=perimeter+excluded.perimeter, same_adjacency=same_adjacency+excluded.same_adjacency, sum_row=sum_row+excluded.sum_row, sum_col=sum_col+excluded.sum_col, sum_row_sq=sum_row_sq+excluded.sum_row_sq, sum_col_sq=sum_col_sq+excluded.sum_col_sq, first_row=MIN(first_row, excluded.first_row), first_col=MIN(first_col, excluded.first_col)",
+                [(int(unique[i]), int(classes[i]), int(counts[i]), float(perimeter[i]), int(same[i]), float(sum_row[i]), float(sum_col[i]), float(sum_row_sq[i]), float(sum_col_sq[i]), int(first_row[i]), int(first_col[i])) for i in range(unique.size)],
+            )
+            valid_count += int(valid.sum())
+            for value in np.unique(central[valid]):
+                mask = valid & (central == value)
+                class_counts[int(value)] = class_counts.get(int(value), 0) + int(mask.sum())
+                same_counts[int(value)] = same_counts.get(int(value), 0) + int(same[classes == value].sum())
+    database.commit()
+    edges = {int(value): float(edge) for value, edge in database.execute("SELECT class_value, SUM(perimeter) FROM patches GROUP BY class_value")}
+    return AggregateSummary(grid, valid_count, class_counts, same_counts, edges, landscape_edge)
+
+
+def _read_patch_records(database: sqlite3.Connection) -> list[dict[str, int | float]]:
+    columns = ["root_label", "class_value", "cell_count", "perimeter", "same_adjacency", "sum_row", "sum_col", "sum_row_sq", "sum_col_sq", "first_row", "first_col"]
+    rows = database.execute("SELECT " + ", ".join(columns) + " FROM patches ORDER BY class_value, first_row, first_col")
+    return [{"patch_id": index, **dict(zip(columns, row, strict=True))} for index, row in enumerate(rows, 1)]
