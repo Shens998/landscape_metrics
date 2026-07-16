@@ -22,3 +22,10 @@ def test_public_docs_describe_selection_and_exact_chunking_without_compatibility
     assert "48 bytes/像元" in text
     assert "FRAGSTATS-compatible" not in text
     assert "PyLandStats-compatible" not in text
+
+
+def test_metric_cards_document_standard_names_and_latex_formulas() -> None:
+    text = Path("docs/metrics.md").read_text(encoding="utf-8")
+
+    assert "Patch Area (AREA)" in text
+    assert "\\( AREA = a_{ij} \\)" in text

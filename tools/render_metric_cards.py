@@ -12,14 +12,14 @@ CARDS = yaml.safe_load(
 ROWS = [
     "# Metric cards",
     "",
-    "| ID | Level | Formula | Unit | Source |",
-    "|---|---|---|---|---|",
+    "| Name | 中文名称 | ID | Level | Formula | Unit | Source |",
+    "|---|---|---|---|---|---|---|",
 ]
 for metric_id, card in CARDS.items():
     source = ", ".join(f"[source]({url})" for url in card["sources"])
     ROWS.append(
-        f"| {metric_id} | {', '.join(card['level'])} | {card['formula']} | "
-        f"{card['unit']} | {source} |"
+        f"| {card['name']} ({card['abbreviation']}) | {card['name_zh']} | {metric_id} | "
+        f"{', '.join(card['level'])} | {card['formula']} | {card['unit']} | {source} |"
     )
 ROWS.extend(
     [

@@ -38,3 +38,14 @@ def test_all_public_metrics_have_formula_rules_and_stable_source() -> None:
         assert card["unit"]
         assert card["level"]
         assert any(url.startswith("https://") for url in card["sources"])
+
+
+def test_metric_cards_have_standard_display_names_and_latex_formulas() -> None:
+    cards = load_metric_cards()
+
+    for card in cards.values():
+        assert card["name"]
+        assert card["name_zh"]
+        assert card["abbreviation"]
+        assert card["formula"].startswith("\\(")
+        assert card["formula"].endswith("\\)")
