@@ -1,0 +1,232 @@
+metrics:
+  aggregation_index:
+    id: aggregation_index
+    name: Aggregation Index
+    name_zh: 聚集度指数
+    abbreviation: AI
+    level: [class, landscape]
+    formula: '\( AI = 100 \times \frac{g_{ii}}{\max g_{ii}} \)'
+    unit: percent
+    rules: "g_ii is a count of same-class shared sides; NoData is excluded; diagonal contact is not adjacency"
+    source_kind: original
+    sources: ["https://doi.org/10.1023/A:1008102521322"]
+  area:
+    id: area
+    name: Patch Area
+    name_zh: 斑块面积
+    abbreviation: AREA
+    level: [patch]
+    formula: '\( AREA = a_{ij} \)'
+    unit: square_metre
+    rules: "valid cells only; NoData is excluded"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  area_cv:
+    id: area_cv
+    name: Patch Area Coefficient of Variation
+    name_zh: 斑块面积变异系数
+    abbreviation: AREA_CV
+    level: [class]
+    formula: '\( AREA\_CV = 100 \times \frac{s_a}{\bar{a}} \)'
+    unit: percent
+    rules: "returns NaN when fewer than two patches exist"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  area_mean:
+    id: area_mean
+    name: Mean Patch Area
+    name_zh: 平均斑块面积
+    abbreviation: AREA_MN
+    level: [class]
+    formula: '\( AREA\_MN = \bar{a} \)'
+    unit: square_metre
+    rules: "valid patches of one explicit class only"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  area_sd:
+    id: area_sd
+    name: Patch Area Standard Deviation
+    name_zh: 斑块面积标准差
+    abbreviation: AREA_SD
+    level: [class]
+    formula: '\( AREA\_SD = s_a \)'
+    unit: square_metre
+    rules: "returns NaN when fewer than two patches exist"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  edge_density:
+    id: edge_density
+    name: Edge Density
+    name_zh: 边缘密度
+    abbreviation: ED
+    level: [class, landscape]
+    formula: '\( ED = \frac{E}{A_{\mathrm{ha}}} \)'
+    unit: metre_per_hectare
+    rules: "shared sides only; landscape exterior is included by default; NoData sides are excluded"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  fractal_dimension:
+    id: fractal_dimension
+    name: Fractal Dimension Index
+    name_zh: 分形维数指数
+    abbreviation: FRAC
+    level: [patch]
+    formula: '\( FRAC = \frac{2\ln(0.25P)}{\ln A} \)'
+    unit: dimensionless
+    rules: "returns NaN for one-cell patches; area and perimeter use metre-based units"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  largest_patch_index:
+    id: largest_patch_index
+    name: Largest Patch Index
+    name_zh: 最大斑块指数
+    abbreviation: LPI
+    level: [class, landscape]
+    formula: '\( LPI = 100 \times \frac{\max(a_{ij})}{A} \)'
+    unit: percent
+    rules: "NoData is excluded from the denominator"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  number_of_patches:
+    id: number_of_patches
+    name: Number of Patches
+    name_zh: 斑块数量
+    abbreviation: NP
+    level: [class, landscape]
+    formula: '\( NP = n \)'
+    unit: count
+    rules: "patch connectivity is configured as 4 or 8; NoData is excluded"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  patch_density:
+    id: patch_density
+    name: Patch Density
+    name_zh: 斑块密度
+    abbreviation: PD
+    level: [class, landscape]
+    formula: '\( PD = 100 \times \frac{NP}{A_{\mathrm{ha}}} \)'
+    unit: patches_per_100_hectare
+    rules: "valid landscape area excludes NoData"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  perimeter:
+    id: perimeter
+    name: Patch Perimeter
+    name_zh: 斑块周长
+    abbreviation: PERIM
+    level: [patch]
+    formula: '\( PERIM = P_{ij} \)'
+    unit: metre
+    rules: "sides touching NoData are excluded; diagonal contact is not an edge"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  perimeter_area_ratio:
+    id: perimeter_area_ratio
+    name: Perimeter-Area Ratio
+    name_zh: 周长面积比
+    abbreviation: PARA
+    level: [patch]
+    formula: '\( PARA = \frac{P_{ij}}{a_{ij}} \)'
+    unit: inverse_metre
+    rules: "area must be positive and comes from valid cells only"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  proportion_of_landscape:
+    id: proportion_of_landscape
+    name: Proportion of Landscape
+    name_zh: 景观比例
+    abbreviation: PLAND
+    level: [class]
+    formula: '\( PLAND = 100 \times \frac{\sum_j a_{ij}}{A} \)'
+    unit: percent
+    rules: "NoData is excluded from both numerator and denominator"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  radius_of_gyration:
+    id: radius_of_gyration
+    name: Radius of Gyration
+    name_zh: 回转半径
+    abbreviation: GYRATE
+    level: [patch]
+    formula: '\( GYRATE = \sqrt{\frac{1}{n}\sum_{r=1}^{n}\lVert\mathbf{x}_r-\bar{\mathbf{x}}\rVert^2} \)'
+    unit: metre
+    rules: "all valid cells in a patch contribute equally"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  shape_index:
+    id: shape_index
+    name: Patch Shape Index
+    name_zh: 斑块形状指数
+    abbreviation: SHAPE
+    level: [patch]
+    formula: '\( SHAPE = \frac{P}{2\sqrt{\pi A}} \)'
+    unit: dimensionless
+    rules: "uses physical perimeter and area from the input grid"
+    source_kind: original
+    sources: ["https://doi.org/10.2307/3781151"]
+  shape_index_mean:
+    id: shape_index_mean
+    name: Mean Patch Shape Index
+    name_zh: 平均斑块形状指数
+    abbreviation: SHAPE_MN
+    level: [class]
+    formula: '\( SHAPE\_MN = \frac{1}{n}\sum_{j=1}^{n}SHAPE_{ij} \)'
+    unit: dimensionless
+    rules: "unweighted arithmetic mean over valid patches in one class"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  shannon_diversity:
+    id: shannon_diversity
+    name: Shannon's Diversity Index
+    name_zh: 香农多样性指数
+    abbreviation: SHDI
+    level: [landscape]
+    formula: '\( SHDI = -\sum_{i=1}^{m}q_i\ln q_i \)'
+    unit: dimensionless
+    rules: "explicit valid classes only; NoData is excluded"
+    source_kind: original
+    sources: ["https://doi.org/10.1002/j.1538-7305.1948.tb01338.x"]
+  shannon_evenness:
+    id: shannon_evenness
+    name: Shannon's Evenness Index
+    name_zh: 香农均匀度指数
+    abbreviation: SHEI
+    level: [landscape]
+    formula: '\( SHEI = \frac{SHDI}{\ln m} \)'
+    unit: dimensionless
+    rules: "returns 0 when exactly one explicit class is present"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  simpson_diversity:
+    id: simpson_diversity
+    name: Simpson's Diversity Index
+    name_zh: 辛普森多样性指数
+    abbreviation: SIDI
+    level: [landscape]
+    formula: '\( SIDI = 1-\sum_{i=1}^{m}q_i^2 \)'
+    unit: dimensionless
+    rules: "explicit valid classes only; NoData is excluded"
+    source_kind: original
+    sources: ["https://doi.org/10.1038/163688a0"]
+  total_area:
+    id: total_area
+    name: Total Area
+    name_zh: 总面积
+    abbreviation: TA
+    level: [class, landscape]
+    formula: '\( TA = \sum_i a_i \)'
+    unit: square_metre
+    rules: "class level sums one class; landscape level sums all valid classes; NoData is excluded"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
+  total_edge:
+    id: total_edge
+    name: Total Edge
+    name_zh: 总边缘长度
+    abbreviation: TE
+    level: [class]
+    formula: '\( TE = E \)'
+    unit: metre
+    rules: "shared class interfaces and selected landscape exterior are included; NoData sides are excluded"
+    source_kind: definition_reference
+    sources: ["https://www.fs.usda.gov/pnw/pubs/pnw_gtr351.pdf"]
