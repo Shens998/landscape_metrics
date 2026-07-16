@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use Open Landscape Metrics in research, please cite this software and the metric sources relevant to your analysis."
+title: Open Landscape Metrics
+type: software
+version: 0.1.0a0
+license: MIT
+repository-code: https://github.com/Shens998/landscape_metrics
+authors:
+  - family-names: Shen
+    given-names: Shi
