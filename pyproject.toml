@@ -38,7 +38,7 @@ target-version = "py311"
 python_version = "3.11"
 
 [[tool.mypy.overrides]]
-module = ["pandas", "rasterio", "rasterio.*", "yaml"]
+module = ["pandas", "rasterio", "rasterio.*", "scipy", "scipy.*", "yaml"]
 ignore_missing_imports = true
 
 [tool.hatch.build]
