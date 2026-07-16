@@ -5,8 +5,10 @@ import math
 import numpy as np
 import pandas as pd
 
+from ..models import AggregateSummary
 from ..topology import Topology
 from .class_level import max_g_ii
+from .summary import as_summary
 
 
 def _landscape_edge(topology: Topology, *, include_landscape_boundary: bool = True) -> float:
@@ -33,19 +35,20 @@ def _landscape_edge(topology: Topology, *, include_landscape_boundary: bool = Tr
 def landscape_metrics(
     classes: pd.DataFrame,
     patches: pd.DataFrame,
-    topology: Topology,
+    topology: Topology | AggregateSummary,
 ) -> pd.DataFrame:
     """Aggregate frozen landscape metrics to one one-row DataFrame."""
-    cell_area = topology.grid.pixel_width * topology.grid.pixel_height
-    valid_area = float(topology.valid_mask.sum()) * cell_area
+    summary = as_summary(topology)
+    cell_area = summary.grid.pixel_width * summary.grid.pixel_height
+    valid_area = float(summary.valid_cell_count) * cell_area
     valid_area_hectares = valid_area / 10_000.0
     proportions = classes["total_area"].to_numpy(dtype=float) / valid_area
     shannon = float(-(proportions[proportions > 0] * np.log(proportions[proportions > 0])).sum())
     class_count = int(proportions.size)
-    total_same = sum(topology.same_adjacency_by_class.values())
+    total_same = sum(summary.same_adjacency_by_class.values())
     total_max = sum(
-        max_g_ii(int(np.count_nonzero(topology.valid_mask & (topology.values == class_value))))
-        for class_value in topology.class_edge_by_class
+        max_g_ii(summary.class_cell_counts[class_value])
+        for class_value in summary.class_edge_by_class
     )
 
     return pd.DataFrame(
@@ -54,7 +57,7 @@ def landscape_metrics(
                 "total_area": valid_area,
                 "number_of_patches": int(patches.shape[0]),
                 "patch_density": patches.shape[0] / valid_area_hectares * 100.0,
-                "edge_density": _landscape_edge(topology) / valid_area_hectares,
+                "edge_density": summary.landscape_edge / valid_area_hectares,
                 "largest_patch_index": 100.0 * float(patches["area"].max()) / valid_area,
                 "shannon_diversity": shannon,
                 "shannon_evenness": 0.0 if class_count == 1 else shannon / math.log(class_count),
